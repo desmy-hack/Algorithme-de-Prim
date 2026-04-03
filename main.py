@@ -4,111 +4,145 @@ import math
 from algorithme_prim import executer_prim
 
 
-class ApplicationDistributionEau:
+class ApplicationMasterEau:
     def __init__(self, root):
         self.root = root
-        self.root.title("Gestionnaire de Réseau d'Eau - Optimisation de Prim")
-        self.root.geometry("900x650")
+        self.root.title("Optimisation de distribution d'eau par le problème d'arbre couvrant de poids minimal à l'aide l'algorithme de Prim")
+        self.root.geometry("1100x750")
 
-        # Données du graphe
-        self.noeuds = []  # Liste de (x, y, nom)
-        self.matrice = []  # Matrice d'adjacence
-
-        # --- Panneau de gauche (Contrôles) ---
-        self.sidebar = tk.Frame(root, width=250, bg="#2c3e50")
-        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
-
-        tk.Label(self.sidebar, text="MENU", fg="white", bg="#2c3e50", font=("Arial", 14, "bold")).pack(pady=20)
-
-        self.btn_reset = tk.Button(self.sidebar, text="Réinitialiser", command=self.reset_graph, width=20)
-        self.btn_reset.pack(pady=10)
-
-        self.btn_optim = tk.Button(self.sidebar, text="Lancer l'Optimisation", command=self.calculer_prim,
-                                   bg="#27ae60", fg="white", font=("Arial", 10, "bold"), width=20)
-        self.btn_optim.pack(pady=10)
-
-        self.info_text = tk.Text(self.sidebar, height=15, width=25, bg="#34495e", fg="white", font=("Consolas", 9))
-        self.info_text.pack(pady=20, padx=10)
-        self.info_text.insert(tk.END,
-                              "Instructions :\n1. Cliquez sur la zone blanche pour placer le Réservoir (Bleu).\n2. Cliquez pour ajouter des Quartiers (Orange).\n3. Reliez-les en cliquant sur deux points successivement.")
-
-        # --- Zone de dessin (Canvas) ---
-        self.canvas = tk.Canvas(root, bg="white", highlightthickness=2, highlightbackground="#bdc3c7")
-        self.canvas.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.canvas.bind("<Button-1>", self.clic_canvas)
-
-        self.selection = None  # Pour stocker le premier nœud cliqué lors d'une liaison
-
-    def reset_graph(self):
         self.noeuds = []
         self.matrice = []
-        self.canvas.delete("all")
-        self.info_text.delete('1.0', tk.END)
+        self.mode = "ajouter"
+        self.selection = None
 
-    def clic_canvas(self, event):
-        # Vérifier si on clique sur un nœud existant pour créer une liaison
+        # --- BARRE D'OUTILS ---
+        self.toolbar = tk.Frame(root, bg="#ecf0f1", height=50, bd=1, relief=tk.RAISED)
+        self.toolbar.pack(side=tk.TOP, fill=tk.X)
+
+        self.creer_bouton_outil("➕ Ajouter Quartier", "ajouter")
+        self.creer_bouton_outil("🔗 Lier / Modifier Distance", "lier")
+        self.creer_bouton_outil("❌ Supprimer", "supprimer")
+
+        tk.Label(self.toolbar, text=" | ", font=("Arial", 15), bg="#ecf0f1").pack(side=tk.LEFT)
+
+        tk.Button(self.toolbar, text="🚀 LANCER OPTIMISATION", command=self.calculer_prim,
+                  bg="#27ae60", fg="white", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=10, pady=5)
+
+        tk.Button(self.toolbar, text="🧹 Réinitialiser", command=self.reset_graph,
+                  bg="#95a5a6", fg="white").pack(side=tk.RIGHT, padx=10)
+
+        # --- ZONE CENTRALE ---
+        self.main_frame = tk.Frame(root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.sidebar = tk.Frame(self.main_frame, width=250, bg="#2c3e50")
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+
+        tk.Label(self.sidebar, text="RÉSULTATS D'OPTIMISATION (m)", fg="#2ecc71", bg="#2c3e50", font=("Arial", 11, "bold")).pack(
+            pady=10)
+
+        self.result_zone = tk.Text(self.sidebar, bg="#34495e", fg="white", width=28, font=("Consolas", 10))
+        self.result_zone.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.canvas = tk.Canvas(self.main_frame, bg="white", highlightthickness=0)
+        self.canvas.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        self.canvas.bind("<Button-1>", self.gerer_clic)
+
+    def creer_bouton_outil(self, texte, mode):
+        btn = tk.Button(self.toolbar, text=texte, command=lambda: self.changer_mode(mode))
+        btn.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def changer_mode(self, nouveau_mode):
+        self.mode = nouveau_mode
+        self.selection = None
+        self.refresh_canvas()
+
+    def gerer_clic(self, event):
+        cible = None
         for i, (x, y, nom) in enumerate(self.noeuds):
             if math.hypot(event.x - x, event.y - y) < 20:
+                cible = i
+                break
+
+        if self.mode == "ajouter":
+            if cible is None:
+                self.ajouter_quartier(event.x, event.y)
+        elif self.mode == "lier":
+            if cible is not None:
                 if self.selection is None:
-                    self.selection = i
-                    self.canvas.itemconfig(f"noeud{i}", outline="red", width=3)
+                    self.selection = cible
+                    self.canvas.itemconfig(f"n{cible}", width=3, outline="blue")
                 else:
-                    self.creer_liaison(self.selection, i)
-                    self.canvas.itemconfig(f"noeud{self.selection}", outline="black", width=1)
+                    self.ajouter_ou_modifier_lien(self.selection, cible)
                     self.selection = None
-                return
+        elif self.mode == "supprimer":
+            if cible is not None:
+                self.supprimer_noeud(cible)
 
-        # Sinon, créer un nouveau nœud
-        id_noeud = len(self.noeuds)
-        nom = "Réservoir" if id_noeud == 0 else f"Quartier {id_noeud}"
-        couleur = "#3498db" if id_noeud == 0 else "#e67e22"
-
-        self.noeuds.append((event.x, event.y, nom))
-        # Agrandir la matrice
+    def ajouter_quartier(self, x, y):
+        idx = len(self.noeuds)
+        nom = "Réservoir" if idx == 0 else f"Quartier {idx}"
+        self.noeuds.append((x, y, nom))
         for ligne in self.matrice: ligne.append(0)
         self.matrice.append([0] * len(self.noeuds))
+        self.refresh_canvas()
 
-        # Dessin
-        self.canvas.create_oval(event.x - 15, event.y - 15, event.x + 15, event.y + 15,
-                                fill=couleur, tags=(f"noeud{id_noeud}", "noeud"))
-        self.canvas.create_text(event.x, event.y + 25, text=nom, font=("Arial", 9, "bold"))
-
-    def creer_liaison(self, n1, n2):
+    def ajouter_ou_modifier_lien(self, n1, n2):
         if n1 == n2: return
-        poids = simpledialog.askfloat("Coût",
-                                      f"Coût de raccordement entre {self.noeuds[n1][2]} et {self.noeuds[n2][2]} :",
-                                      minvalue=0.1)
-        if poids:
-            self.matrice[n1][n2] = self.matrice[n2][n1] = poids
-            x1, y1, _ = self.noeuds[n1]
-            x2, y2, _ = self.noeuds[n2]
-            self.canvas.create_line(x1, y1, x2, y2, fill="#bdc3c7", width=2, tags="liaison")
-            self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=str(poids), fill="red")
+        dist = simpledialog.askfloat("Saisie", f"Distance entre {self.noeuds[n1][2]} et {self.noeuds[n2][2]} (m) :",
+                                     minvalue=0)
+        if dist is not None:
+            self.matrice[n1][n2] = self.matrice[n2][n1] = dist
+        self.refresh_canvas()
+
+    def supprimer_noeud(self, idx):
+        self.noeuds.pop(idx)
+        self.matrice.pop(idx)
+        for ligne in self.matrice: ligne.pop(idx)
+        self.refresh_canvas()
+
+    def refresh_canvas(self):
+        self.canvas.delete("all")
+        for i in range(len(self.noeuds)):
+            for j in range(i + 1, len(self.noeuds)):
+                if self.matrice[i][j] > 0:
+                    x1, y1, _ = self.noeuds[i]
+                    x2, y2, _ = self.noeuds[j]
+                    self.canvas.create_line(x1, y1, x2, y2, fill="#dfe6e9", width=2)
+                    self.canvas.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=f"{self.matrice[i][j]}m", fill="red")
+
+        for i, (x, y, nom) in enumerate(self.noeuds):
+            couleur = "#0984e3" if i == 0 else "#ffffff"
+            self.canvas.create_oval(x - 15, y - 15, x + 15, y + 15, fill=couleur, outline="black", tags=f"n{i}")
+            self.canvas.create_text(x, y + 25, text=nom, font=("Arial", 8, "bold"))
+
+        self.canvas.create_text(550, 20, text=f"MODE ACTIF : {self.mode.upper()}", font=("Arial", 10, "bold"),
+                                fill="blue")
 
     def calculer_prim(self):
-        if len(self.noeuds) < 2:
-            messagebox.showwarning("Attention", "Ajoutez au moins deux points !")
-            return
+        if len(self.noeuds) < 2: return
+        self.result_zone.delete('1.0', tk.END)
+        try:
+            parents, total = executer_prim(self.matrice)
+            self.result_zone.insert(tk.END, f"✅ OPTIMISATION\nDISTANCE TOTALE : {total:.2f} m\n" + "=" * 18 + "\n")
+            for enfant, pere in enumerate(parents):
+                if pere is not None:
+                    x1, y1, _ = self.noeuds[pere]
+                    x2, y2, _ = self.noeuds[enfant]
+                    self.canvas.create_line(x1, y1, x2, y2, fill="#27ae60", width=4)
+                    dist = self.matrice[pere][enfant]
+                    self.result_zone.insert(tk.END,
+                                            f"• {self.noeuds[pere][2]}\n  -> {self.noeuds[enfant][2]}\n  ({dist} m)\n\n")
+        except:
+            messagebox.showerror("Erreur", "Le réseau n'est pas entièrement connecté !")
 
-        # Appel de votre algorithme (indépendant de l'interface)
-        parents, cout_total = executer_prim(self.matrice)
-
-        # Nettoyage des anciennes lignes d'optimisation
-        self.canvas.delete("optim")
-        self.info_text.delete('1.0', tk.END)
-        self.info_text.insert(tk.END, f"RÉSULTATS :\nTotal : {cout_total:.2f} €\n\n")
-
-        # Dessin de l'arbre optimal
-        for enfant, pere in enumerate(parents):
-            if pere is not None:
-                x1, y1, _ = self.noeuds[pere]
-                x2, y2, _ = self.noeuds[enfant]
-                self.canvas.create_line(x1, y1, x2, y2, fill="#2ecc71", width=5, tags="optim")
-                res = f"De {self.noeuds[pere][2]}\nVers {self.noeuds[enfant][2]}\n--------\n"
-                self.info_text.insert(tk.END, res)
+    def reset_graph(self):
+        self.noeuds, self.matrice = [], []
+        self.refresh_canvas()
+        self.result_zone.delete('1.0', tk.END)
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = ApplicationDistributionEau(root)
+    app = ApplicationMasterEau(root)
     root.mainloop()
