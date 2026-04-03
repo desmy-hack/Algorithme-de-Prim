@@ -1,21 +1,21 @@
-# algorithme_prim.py
+
 
 def executer_prim(graph):
     n = len(graph)
-    # Initialisation des structures standards
+
     inf = float('inf')
     poids_min = [inf] * n
     parent = [None] * n
     visite = [False] * n
 
-    # On commence par le premier sommet (le réservoir)
+  
     poids_min[0] = 0
     cout_total = 0
 
     print("--- Début de l'optimisation du réseau ---")
 
     for _ in range(n):
-        # Trouver le sommet non visité avec le poids minimal (Recherche Linéaire)
+ 
         u = -1
         for i in range(n):
             if not visite[i] and (u == -1 or poids_min[i] < poids_min[u]):
@@ -30,9 +30,9 @@ def executer_prim(graph):
         if parent[u] is not None:
             print(f"Connexion établie : Nœud {parent[u]} -> Nœud {u} (Coût: {poids_min[u]})")
 
-        # Mise à jour des distances pour les voisins de u
+ 
         for v in range(n):
-            # Si une arête existe et que v n'est pas encore dans l'arbre
+          
             if graph[u][v] != 0 and not visite[v]:
                 if graph[u][v] < poids_min[v]:
                     poids_min[v] = graph[u][v]
