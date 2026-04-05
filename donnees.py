@@ -1,5 +1,4 @@
 """
-FICHIER : donnees.py
 OBJET : Matrice d'adjacence du réseau de distribution d'eau
 UNITÉ : Les poids représentent des distances
 
