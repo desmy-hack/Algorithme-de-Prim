@@ -1,4 +1,3 @@
-# algorithme_prim.py
 
 def executer_prim(graph):
     n = len(graph)
