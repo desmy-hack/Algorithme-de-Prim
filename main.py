@@ -38,7 +38,7 @@ class ApplicationMasterEau:
         self.sidebar = tk.Frame(self.main_frame, width=250, bg="#2c3e50")
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
 
-        tk.Label(self.sidebar, text="RÉSULTATS D'OPTIMISATION (m)", fg="#2ecc71", bg="#2c3e50", font=("Arial", 11, "bold")).pack(
+        tk.Label(self.sidebar, text="RÉSULTATS (m)", fg="#2ecc71", bg="#2c3e50", font=("Arial", 11, "bold")).pack(
             pady=10)
 
         self.result_zone = tk.Text(self.sidebar, bg="#34495e", fg="white", width=28, font=("Consolas", 10))
